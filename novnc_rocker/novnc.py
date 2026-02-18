@@ -13,12 +13,6 @@ class NoVNC(RockerExtension):
         self._env_subs = {}
         self.name = NoVNC.get_name()
 
-    def precondition_environment(self, cli_args):
-        pass
-
-    def validate_environment(self, cli_args):
-        pass
-
     def get_preamble(self, cli_args):
         return ''
 
