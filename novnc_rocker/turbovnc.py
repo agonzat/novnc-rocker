@@ -40,9 +40,6 @@ class TurboVNC(RockerExtension):
             print("ERROR: Unsupported codename for base image: %s not in %s" % (codename, self.SUPPORTED_CODENAMES))
             sys.exit(1)
 
-    def validate_environment(self, cli_args):
-        pass
-
     def get_preamble(self, cli_args):
         return ''
 
