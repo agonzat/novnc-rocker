@@ -1,20 +1,24 @@
-ARG SOURCEFORGE=https://sourceforge.net/projects
-ARG TURBOVNC_VERSION=2.2.6
-ARG VIRTUALGL_VERSION=2.6.5
+ARG TURBOVNC_VERSION=3.1
+ARG VIRTUALGL_VERSION=3.1.4
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -qy --no-install-recommends \
         ca-certificates \
         curl \
-    	lubuntu-desktop \
+        lubuntu-desktop \
         mesa-utils \
+        libegl-mesa0 \
         supervisor \
         xauth \
+        adwaita-icon-theme \
+        hicolor-icon-theme \
+        breeze-icon-theme \
+        papirus-icon-theme \
     && rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp && \
-    curl -fsSL -O ${SOURCEFORGE}/turbovnc/files/${TURBOVNC_VERSION}/turbovnc_${TURBOVNC_VERSION}_amd64.deb \
-        -O ${SOURCEFORGE}/virtualgl/files/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_amd64.deb \
-    && dpkg -i *.deb \
+    curl -fsSL -O https://github.com/TurboVNC/turbovnc/releases/download/${TURBOVNC_VERSION}/turbovnc_${TURBOVNC_VERSION}_amd64.deb \
+        -O https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_amd64.deb \
+    && dpkg -i --force-depends *.deb \
     && rm -f /tmp/*.deb
 
 # Keep vnc content out of
@@ -35,9 +39,21 @@ COPY turbovnc.conf /root/.supervisor/conf.d
 ## Make sure we're in lxqt. gnome-session will win if it's installed in the image.
 RUN update-alternatives --set x-session-manager /usr/bin/startlxqt
 
-# TODO(tfoote) avoid selecting mutter vs openbox windows manager
+# Wrapper script: find the TurboVNC port from its log and start noVNC proxy
+RUN printf '#!/bin/sh\n\
+for i in $(seq 1 30); do\n\
+  PORT=$(grep -rh "Listening for VNC connections on TCP port" /tmp/*-vnc/*.log 2>/dev/null | tail -1 | awk "{print \\$NF}")\n\
+  [ -n "$PORT" ] && break\n\
+  sleep 1\n\
+done\n\
+echo "noVNC connecting to VNC port $PORT"\n\
+exec /opt/noVNC/utils/novnc_proxy --vnc localhost:${PORT} --listen $1\n' > /usr/local/bin/novnc_start.sh \
+    && chmod +x /usr/local/bin/novnc_start.sh
 
-# Disable unneeded modules
+# Custom xstartup: bypass xinitrc and explicitly set VNC xauth to avoid
+# conflict with the host XAUTHORITY injected by rocker's --x11 extension
+RUN printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexport XAUTHORITY="/tmp/@(vnc_user)-vnc/.Xauthority"\nsetxkbmap es\nexec /usr/bin/startlxqt\n' > /opt/TurboVNC/bin/xstartup.turbovnc \
+    && chmod +x /opt/TurboVNC/bin/xstartup.turbovnc
 
 RUN echo 'Hidden=True' >> /etc/xdg/autostart/lxqt-xscreensaver-autostart.desktop
 RUN echo 'Hidden=True' >> /etc/xdg/autostart/lxqt-powermanagement.desktop
@@ -45,4 +61,8 @@ RUN echo 'Hidden=True' >> /etc/xdg/autostart/upg-notifier-autostart.desktop
 RUN echo 'Hidden=True' >> /etc/xdg/autostart/nm-tray-autostart.desktop
 RUN echo 'Hidden=True' >> /etc/xdg/autostart/nm-applet.desktop
 
-CMD @(vnc_user != 'root' ? 'sudo ' ! '')@ /usr/bin/supervisord -c /root/.supervisor/supervisor.conf
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["tail", "-f", "/dev/null"]

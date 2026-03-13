@@ -15,7 +15,7 @@ class TurboVNC(RockerExtension):
     def __init__(self):
         self._env_subs = {}
         self.name = TurboVNC.get_name()
-        self.SUPPORTED_CODENAMES = ['focal', 'jammy']
+        self.SUPPORTED_CODENAMES = ['noble']
 
     def compute_env_subs(self, cli_args):
         # TODO(tfoote) this caches cli_args implicitly
@@ -44,7 +44,7 @@ class TurboVNC(RockerExtension):
         return ''
 
     def get_files(self, cli_args):
-        file_list = ['supervisor.conf']
+        file_list = ['supervisor.conf', 'entrypoint.sh']
         files = {}
         for f in file_list:
             files['%s' % f] = pkgutil.get_data(

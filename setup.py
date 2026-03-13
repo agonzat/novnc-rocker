@@ -13,6 +13,7 @@ setuptools.setup(
         'templates/nginx.conf',
         'templates/supervisor.conf',
         'templates/turbovnc.conf',
+        'templates/entrypoint.sh',
         'templates/.htpasswd']},
     author="Tully Foote",
     author_email="tfoote@osrfoundation.org",
